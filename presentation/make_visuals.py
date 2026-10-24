@@ -1,4 +1,4 @@
-"""Generate warehouse/erd.png and presentation/slides.pdf (7 slides) from the built warehouse."""
+"""Generate warehouse/erd.png and presentation/slides.pdf (6 slides, the brief's maximum) from the built warehouse."""
 from __future__ import annotations
 
 import sys
@@ -61,7 +61,7 @@ def erd() -> None:
 BG, PANEL, EDGE, WHITE, SOFT = "#0b1120", "#131c31", "#1e2a44", "#f8fafc", "#94a3b8"
 CYAN, VIOLET, ORANGE, ROSE, GREEN, AMBER = "#22d3ee", "#a78bfa", "#f97316", "#f43f5e", "#34d399", "#fbbf24"
 W, H = 13.33, 7.5
-TOTAL_SLIDES = 7
+TOTAL_SLIDES = 6  # the brief allows max 6 slides
 
 
 def new_slide(title: str, kicker: str, page: int):
@@ -229,29 +229,8 @@ def slides() -> None:
         pdf.savefig(fig, facecolor=BG)
         plt.close(fig)
 
-        # 6. Actions
-        fig = new_slide(f"Three payroll rules close a PKR {leak_total/1e6:.1f}M leak", "Recommended actions", 6)
-        acts = [("1", "Pay OT from punches", "fact_attendance_daily.ot_hours,\ncapped at approved hours.",
-                 leak_ot, ORANGE),
-                ("2", "Hold zero-punch payslips", "No punches and no approved\nleave in the month: hold.",
-                 leak_ghost, ROSE),
-                ("3", "Exit gate in payroll", "Block every pay month after\nseparation_date.",
-                 leak_exit, VIOLET)]
-        for i, (n, t, d, amt, col) in enumerate(acts):
-            x = 0.05 + i * 0.31
-            box(fig, x, 0.2, 0.28, 0.52, col, 2)
-            fig.text(x + 0.02, 0.62, n, fontsize=34, color=col, weight="bold")
-            fig.text(x + 0.02, 0.545, t, fontsize=17, color=WHITE, weight="bold")
-            fig.text(x + 0.02, 0.43, d, fontsize=12.5, color=SOFT, va="center", linespacing=1.5)
-            fig.text(x + 0.02, 0.28, f"PKR {amt/1e6:.2f}M", fontsize=24, color=col, weight="bold")
-            fig.text(x + 0.02, 0.235, "leak closed (Apr–Sep)", fontsize=10.5, color=SOFT)
-        fig.text(0.05, 0.11, "Run python run_pipeline.py every month: the DQ results gate the payroll file.",
-                 fontsize=13, color=WHITE)
-        pdf.savefig(fig, facecolor=BG)
-        plt.close(fig)
-
-        # 7. Trust
-        fig = new_slide("How we got the numbers right", "Pipeline & data quality", 7)
+        # 6. Trust
+        fig = new_slide("How we got the numbers right", "Pipeline & data quality", 6)
         steps = [("Raw", "12 files as-is"), ("Staging", "clean + reconcile"), ("Attendance", "rules 12–15"),
                  ("Warehouse", "star schema"), ("10 answers", "SQL → CSV"), ("DQ", f"{passed}/{total} pass")]
         for i, (t, d) in enumerate(steps):

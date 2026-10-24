@@ -64,6 +64,8 @@ streamlit run dashboard/app.py         # open the dashboard
 | `python run_pipeline.py --incremental FILE --period-end 2026-10-31` | Append only the new punches of a 7th month, then rebuild |
 | `python quality/dq_checks.py` | Re-run only the data-quality checks |
 | `python analytics/run_questions.py` | Re-run only the 10 questions |
+| `python quality/crosscheck_answers.py` | Recompute the 10 answers in pandas and compare them with the CSVs |
+| `python -m pytest tests -v` | Run the 20 unit tests (no data files needed) |
 
 ## 3. One database, three layers (`pipeline_config.py`)
 
@@ -223,10 +225,20 @@ There are 89 checks, each a SQL query that counts the rows *breaking* a rule (0 
 
 Reconciliation is what proves no data was lost: every raw row is either in staging or in a log or rejected table with a reason.
 
+### Answer cross-check (`quality/crosscheck_answers.py`)
+Runs right after the 89 checks. It recomputes all 10 answers a second, independent way: with pandas, straight from the staging tables, without using any warehouse table, view or SQL file. Then it compares every value with the CSVs (tolerance: 0.01, or 1 rupee for PKR amounts). For a wrong number to survive, the same bug would have to exist in both SQL and pandas. Result: 10/10 match. Changing one number in a CSV on purpose makes it fail with exit code 1.
+
+### Unit tests (`tests/`, pytest)
+20 tests, about 1.5 seconds, no data files needed. Each test builds a few hand-made rows in an in-memory database and runs the pipeline's own SQL file or Python function on them:
+- `tests/test_business_rules_sql.py`: 2-minute duplicate, unmapped punch, clock correction from the drift date only, night-shift check-out dated to the start day, the worked example from section 11, OT rounded down at exact boundaries (14:29:59 gives 0, 14:30:00 gives 0.5), the late grace, status priority, leave over absent, all Sunday work is OT.
+- `tests/test_python_helpers.py`: the three date formats, unknown dates fail loudly, text trimming, the row hash, loading the same file twice inserts 0 rows.
+
+GitHub Actions (`.github/workflows/tests.yml`) runs them on every push. The badge at the top of the README shows the result.
+
 ## 10. Stage 7: dashboard, slides, ERD
 
 - **`dashboard/app.py`** (Streamlit) reads the warehouse and the result CSVs. Its tabs are CFO story, Overtime gap, Payroll leakage, 10 questions (chart, table and SQL), Data quality, Pipeline, and a read-only SQL explorer. The `q()` helper caches each query so the page stays fast.
-- **`presentation/make_visuals.py`** draws `warehouse/erd.png` and the 7-slide `presentation/slides.pdf` with matplotlib. It uses the same numbers as the CSVs, so the slides can never disagree with the data.
+- **`presentation/make_visuals.py`** draws `warehouse/erd.png` and the 6-slide `presentation/slides.pdf` with matplotlib. It uses the same numbers as the CSVs, so the slides can never disagree with the data.
 - **`presentation/cfo_findings.md`** and **`presentation/DEMO.md`** hold the three findings and the 5-minute demo script.
 
 ## 11. Worked example: one employee-day, from punch to CFO number

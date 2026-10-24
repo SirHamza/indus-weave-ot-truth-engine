@@ -10,4 +10,4 @@
 | 4:00–4:30 | Data quality tab | "89 checks prove the numbers reconcile from raw to warehouse." |
 | 4:30–5:00 | Back to CFO story → Fix box | "Three fixes: pay OT from punches capped at approved, hold zero-punch payslips, block pay after separation. About PKR 6.2M in six months." |
 
-Backup: if the dashboard fails, open `presentation/slides.pdf` (7 slides, same numbers).
+Backup: if the dashboard fails, open `presentation/slides.pdf` (6 slides, same numbers).

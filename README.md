@@ -1,5 +1,7 @@
 # Indus Weave HR Pipeline: OT Truth Engine
 
+[![tests](https://github.com/SirHamza/indus-weave-ot-truth-engine/actions/workflows/tests.yml/badge.svg)](https://github.com/SirHamza/indus-weave-ot-truth-engine/actions/workflows/tests.yml)
+
 A Python + SQL pipeline that turns six months of messy HCM exports (Apr–Sep 2026) into a trusted star-schema warehouse. It answers the 10 business questions and shows the CFO where the overtime money goes.
 
 **Headline:** OT paid rose **+23%** (PKR 2.81M to 3.48M a month) while the OT worked by the punch clock stayed flat. Payroll pays approved requests 1:1. See [`presentation/cfo_findings.md`](presentation/cfo_findings.md) for the three findings (about PKR 6.2M of leakage).
@@ -26,11 +28,22 @@ python -m venv .venv
 .venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 # unzip indus_weave_hcm_data.zip so the 12 files + data_dictionary.md are in data/raw/
-python run_pipeline.py --fresh    # ~80 s: raw -> staging -> warehouse -> answers -> DQ -> ERD/slides
+python run_pipeline.py --fresh    # ~90 s: raw -> staging -> warehouse -> answers -> DQ -> cross-check -> ERD/slides
 streamlit run dashboard/app.py    # bonus dashboard
 ```
 Output: `db/raw.db`, `db/staging.db`, `db/warehouse.db` (ATTACHed as schemas `raw`, `staging`, `warehouse`, so all SQL is schema-qualified as in PostgreSQL), `analytics/results/*.csv`, `warehouse.dq_results`.
 Re-running `python run_pipeline.py` is idempotent: raw rows are keyed on `_row_hash`, so a repeated load inserts 0 rows, and every later layer is rebuilt deterministically.
+
+## How we know the numbers are right
+Three independent layers of proof, all automated:
+
+| Layer | What it proves | Run it |
+|---|---|---|
+| **89 data-quality checks** (`quality/dq_checks.py`) | Keys unique, every fact has its dimension row, every raw row is accounted for (raw = staging + rejected), allowed values only, business sanity (no shift > 16 h, no SCD2 overlap, OT in whole half-hours) | runs in the pipeline |
+| **Answer cross-check** (`quality/crosscheck_answers.py`) | All 10 answers are recomputed a second way, in pandas from the staging tables without touching the warehouse SQL, and must match the CSVs value by value | runs in the pipeline |
+| **20 unit tests** (`tests/`) | Each business rule on hand-made rows, using the pipeline's own SQL and Python: 2-minute duplicate, unmapped punch, clock correction, night-shift date, late grace, OT rounded down to half-hours, status priority, idempotent raw load | `python -m pytest tests -v` (also on every push via GitHub Actions) |
+
+Both checkers were verified by breaking things on purpose: a wrong number in an answer CSV and a changed duplicate window in the SQL were each caught.
 
 ## Layout
 | Path | Stage | What |
@@ -42,11 +55,13 @@ Re-running `python run_pipeline.py` is idempotent: raw rows are keyed on `_row_h
 | `warehouse/ddl/*.sql`, `load_warehouse.sql`, `erd.png` | 4 | Star schema with PK/FK enforced (`PRAGMA foreign_keys=ON`, `foreign_key_check` = 0) |
 | `analytics/q01…q10*.sql`, `results/` | 5 | One SQL file per question (CTEs + window functions), one CSV each |
 | `quality/dq_checks.py` | 6 | 89 checks (PK, FK, reconciliation, accepted values, sanity) go to `warehouse.dq_results`. Exit code 1 on any failure |
+| `quality/crosscheck_answers.py` | 6 | Recomputes all 10 answers independently in pandas and compares them with the SQL CSVs |
+| `tests/` | tests | 20 pytest unit tests for the business rules; run on every push by `.github/workflows/tests.yml` |
 | `run_pipeline.py` | bonus | One-command rebuild, `--fresh`, `--incremental` |
 | `analytics/bonus_recruitment_funnel.sql` | bonus | Funnel conversion + median days per stage |
 | `dashboard/app.py` | bonus | Streamlit (dark theme in `.streamlit/config.toml`): CFO story, OT gap by plant, leakage, all 10 questions with chart + SQL, DQ ledger, pipeline view, SQL explorer |
-| `docs/HOW_IT_WORKS.md` | guide | Code walkthrough: every stage, key code, worked example |
-| `presentation/` | demo | `cfo_findings.md`, `slides.pdf` (7 slides), `make_visuals.py` |
+| `docs/HOW_IT_WORKS.md`, `docs/HOW_IT_WORKS_ROMAN_URDU.md` | guide | Code walkthrough: every stage, key code, worked example (English and Roman Urdu) |
+| `presentation/` | demo | `cfo_findings.md`, `slides.pdf` (6 slides), `make_visuals.py` |
 
 ## Planted data issues: found, fixed in code, documented
 | Issue | How we found it | Fix (code) | Count |

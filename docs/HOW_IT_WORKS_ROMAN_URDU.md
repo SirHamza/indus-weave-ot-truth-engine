@@ -93,6 +93,8 @@ streamlit run dashboard/app.py         # dashboard kholo
 | `python run_pipeline.py --incremental FILE --period-end 2026-10-31` | 7th mahine ke sirf naye punches jorna, phir rebuild |
 | `python quality/dq_checks.py` | Sirf data checks dobara chalana |
 | `python analytics/run_questions.py` | Sirf 10 sawal dobara chalana |
+| `python quality/crosscheck_answers.py` | 10 jawab pandas se dobara nikal kar CSVs se milana |
+| `python -m pytest tests -v` | 20 unit tests chalana (data files ki zaroorat nahi) |
 
 ## 5. Ek database, teen layers (`pipeline_config.py`)
 
@@ -254,10 +256,20 @@ Natija: Stitching (Faisalabad) ko 4,906 ghante kaam ke badle 7,659 ghante pay hu
 
 Reconciliation saabit karta hai ke koi data gum nahi hua: har raw row ya staging mein hai, ya kisi log/rejected table mein wajah ke saath.
 
+### Jawabon ki cross-check (`quality/crosscheck_answers.py`)
+89 checks ke foran baad chalta hai. Yeh saare 10 jawab **doosre, alag tareeqe** se nikalta hai: pandas se, seedha staging tables se, warehouse ki koi table, view ya SQL file use kiye baghair. Phir har value CSVs se milata hai (farq ki hadd 0.01, PKR mein 1 rupaya). Ghalat number tabhi bach sakta hai jab bilkul wohi ghalti SQL aur pandas dono mein ho. Natija: 10/10 match. CSV mein jaan boojh kar ek number badlo to yeh exit code 1 ke saath fail hota hai.
+
+### Unit tests (`tests/`, pytest)
+20 tests, taqreeban 1.5 second, data files ki zaroorat nahi. Har test in-memory database mein chand nakli rows banata hai, phir un par pipeline ki **apni** SQL file ya Python function chalata hai:
+- `tests/test_business_rules_sql.py`: 2 minute duplicate, bina mapping punch, clock ki correction sirf drift ki date se, night shift ka check-out shuru wali date par, hissa 13 wali asal misaal, OT ka neeche round hona bilkul hadd par (14:29:59 par 0, 14:30:00 par 0.5), late ki grace, status ki tarteeb, leave absent par bhari, Sunday ka saara kaam OT.
+- `tests/test_python_helpers.py`: teeno date formats, anjaan date par zor se fail, text trim, row hash, aur ek file do baar load karne par 0 nayi rows.
+
+GitHub Actions (`.github/workflows/tests.yml`) har push par yeh tests khud chalata hai. README ke upar laga badge natija dikhata hai.
+
 ## 12. Stage 7: dashboard, slides, ERD
 
 - **`dashboard/app.py`** (Streamlit) warehouse aur result CSVs parhta hai. Tabs: CFO story, Overtime gap, Payroll leakage, 10 questions (chart, table aur SQL), Data quality, Pipeline, aur read-only SQL explorer. `q()` helper har query cache karta hai, is liye page tez chalta hai.
-- **`presentation/make_visuals.py`** matplotlib se `warehouse/erd.png` aur 7 slides wali `presentation/slides.pdf` banata hai. Yeh wahi numbers use karta hai jo CSVs mein hain, is liye slides aur data kabhi alag nahi ho sakte.
+- **`presentation/make_visuals.py`** matplotlib se `warehouse/erd.png` aur 6 slides wali `presentation/slides.pdf` banata hai. Yeh wahi numbers use karta hai jo CSVs mein hain, is liye slides aur data kabhi alag nahi ho sakte.
 - **`presentation/cfo_findings.md`** aur **`presentation/DEMO.md`** mein teen findings aur 5 minute ka demo script hai.
 
 ## 13. Asal example: ek din, ek punch se CFO ke number tak
@@ -334,6 +346,9 @@ Nahi. Har machine ka rozana median baaqi machines se milaya jata hai. `DEV-SITE-
 
 **Q: Overtime ka hisaab kaise?**
 Shift khatam hone ke baad ka waqt, poore aadhe ghante tak neeche round. Integer seconds ÷ 1800, is liye decimal ki ghalti nahi.
+
+**Q: Kaise pata ke 10 jawab sahi hain?**
+Teen tareeqon se: 89 data checks; har jawab pandas se dobara nikal kar SQL se milaya jata hai (10/10 match); aur 20 unit tests har business rule ko chhote nakli data par check karte hain. Dono checkers ko jaan boojh kar ghalti daal kar test kiya gaya, aur dono ne ghalti pakri.
 
 **Q: Naya mahina aaye to?**
 `python run_pipeline.py --incremental <file> --period-end <date>`. Sirf naye punches add hote hain, phir sab dobara banta hai.

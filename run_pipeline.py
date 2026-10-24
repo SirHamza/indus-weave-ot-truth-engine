@@ -28,6 +28,7 @@ STAGES = [
     ("5 business questions", ["analytics/run_questions.py"]),
     ("5b recruitment funnel (bonus)", ["analytics/recruitment_funnel.py"]),
     ("6 data-quality checks", ["quality/dq_checks.py"]),
+    ("6b answer cross-check", ["quality/crosscheck_answers.py"]),
     ("7 ERD + slides", ["presentation/make_visuals.py"]),
 ]
 
