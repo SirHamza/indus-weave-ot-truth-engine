@@ -4,7 +4,7 @@ A Python + SQL pipeline that turns six months of messy HCM exports (Apr–Sep 20
 
 **Headline:** OT paid rose **+23%** (PKR 2.81M to 3.48M a month) while the OT worked by the punch clock stayed flat. Payroll pays approved requests 1:1. See [`presentation/cfo_findings.md`](presentation/cfo_findings.md) for the three findings (about PKR 6.2M of leakage).
 
-**New to the code?** Start with [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md): a stage-by-stage walkthrough with the key code and one employee-day traced from raw punch to CFO number.
+**New to the code?** Start with [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md): a stage-by-stage walkthrough with the key code and one employee-day traced from raw punch to CFO number. Roman Urdu version: [`docs/HOW_IT_WORKS_ROMAN_URDU.md`](docs/HOW_IT_WORKS_ROMAN_URDU.md).
 
 ## Screenshots
 **CFO story:** paid OT climbs while OT worked by the punch clock stays flat, plus the top 3 findings.
