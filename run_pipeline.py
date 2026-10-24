@@ -19,6 +19,7 @@ from pathlib import Path
 
 from pipeline_config import DB_DIR, ROOT
 
+# The pipeline, in order: (stage name, script to run).
 STAGES = [
     ("1 ingest raw", ["ingestion/load_raw.py"]),
     ("2 clean -> staging", ["transform/stage2_clean.py"]),
@@ -34,6 +35,7 @@ STAGES = [
 def run(name: str, args: list[str], env: dict) -> None:
     started = time.time()
     print(f"\n=== Stage {name} ===", flush=True)
+    # Each stage is a separate Python process; a non-zero exit code stops the whole pipeline.
     proc = subprocess.run([sys.executable, *args], cwd=ROOT, env=env)
     if proc.returncode != 0:
         raise SystemExit(f"Stage '{name}' failed (exit {proc.returncode}). Fix the error above and re-run.")
@@ -47,9 +49,11 @@ def main() -> None:
     ap.add_argument("--period-end", help="extend attendance beyond 2026-09-30 (e.g. 2026-10-31 for a 7th month)")
     args = ap.parse_args()
 
+    # Settings are passed to each stage through environment variables.
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
     if args.period_end:
         env["PERIOD_END"] = args.period_end
+    # --fresh: delete the databases so the run starts from nothing (like a new machine).
     if args.fresh and DB_DIR.exists():
         shutil.rmtree(DB_DIR)
         print(f"Removed {DB_DIR}")
@@ -57,7 +61,7 @@ def main() -> None:
     started = time.time()
     stages = list(STAGES)
     if args.incremental:
-        # Pehle baseline raw load (idempotent, 0 naye rows), phir sirf nayi file ke naye rows.
+        # Run the normal raw load first (adds 0 rows when nothing changed), then append only the NEW rows of the extra file.
         stages.insert(1, ("1b incremental punches", ["ingestion/load_raw.py", "--file", str(args.incremental),
                                                     "--table", "biometric_punches"]))
     for name, cmd in stages:

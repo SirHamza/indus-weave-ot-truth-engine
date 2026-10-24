@@ -5,6 +5,7 @@
 
 DROP TABLE IF EXISTS staging.punch_events;
 CREATE TABLE staging.punch_events AS
+-- Step 1: trim the raw text values.
 WITH base AS (
     SELECT b.punch_id,
            TRIM(b.device_id)      AS device_id,
@@ -14,7 +15,8 @@ WITH base AS (
     FROM raw.biometric_punches b
 ),
 corrected AS (
-    -- Rule 11: drifting device ke punches se offset minus karte hain (detection: stage2_clean.detect_clock_drift).
+    -- Rule 11: subtract the detected clock offset from punches of a drifting device
+    -- (the offset is detected in stage2_clean.detect_clock_drift). Unmapped punches keep emp_id = NULL.
     SELECT base.*,
            m.emp_id,
            COALESCE(c.offset_minutes, 0) AS clock_offset_min,
@@ -29,7 +31,7 @@ corrected AS (
           AND (c.drift_to IS NULL OR base.punch_time_raw < c.drift_to)
 ),
 sequenced AS (
-    -- Rule 9 (LAG): same employee ka pichla punch 120 sec ke andar ho to yeh duplicate hai.
+    -- Rule 9 (LAG): if the same employee's previous punch is within 120 seconds, this punch is a duplicate.
     SELECT corrected.*,
            LAG(punch_id)   OVER w AS prev_punch_id,
            CAST(strftime('%s', punch_time) AS INTEGER)
@@ -38,6 +40,7 @@ sequenced AS (
     WHERE emp_id IS NOT NULL
     WINDOW w AS (PARTITION BY emp_id ORDER BY punch_time, punch_id)
 )
+-- Step 4: label every punch: NULL reason = keep, otherwise the rejection reason.
 SELECT c.punch_id, c.device_id, c.device_user_id, c.emp_id, c.punch_time_raw, c.punch_time,
        c.clock_offset_min, s.prev_punch_id, s.secs_since_prev,
        CASE WHEN c.emp_id IS NULL THEN 'UNMAPPED_DEVICE_USER'
@@ -48,6 +51,7 @@ FROM corrected c
 LEFT JOIN sequenced s ON s.punch_id = c.punch_id;
 
 DROP TABLE IF EXISTS staging.rejected_punches;
+-- Rejected punches are kept with a readable explanation, so every raw punch is accounted for.
 CREATE TABLE staging.rejected_punches AS
 SELECT punch_id, device_id, device_user_id, emp_id, punch_time_raw, punch_time, clock_offset_min,
        reject_reason,
@@ -83,5 +87,6 @@ FROM kept k
 LEFT JOIN staging.roster_daily cur  ON cur.emp_id = k.emp_id AND cur.work_date = k.cal_date
 LEFT JOIN staging.roster_daily prev ON prev.emp_id = k.emp_id AND prev.work_date = date(k.cal_date, '-1 day');
 
+-- Index for the attendance join; the temporary working table is then dropped.
 CREATE INDEX IF NOT EXISTS staging.ix_punches_emp_date ON punches (emp_id, shift_date);
 DROP TABLE staging.punch_events;

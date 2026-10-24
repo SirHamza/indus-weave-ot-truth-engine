@@ -14,6 +14,7 @@ HERE = Path(__file__).resolve().parent
 def main() -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     conn = connect()
+    # Run q01 ... q10 in order and save each result table as a CSV with the same name.
     for sql_file in sorted(HERE.glob("q*.sql")):
         cur = conn.execute(sql_file.read_text(encoding="utf-8"))
         header = [c[0] for c in cur.description]

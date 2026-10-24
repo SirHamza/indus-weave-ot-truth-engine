@@ -16,7 +16,7 @@ from pipeline_config import DB_DIR, connect  # noqa: E402
 RESULTS = ROOT / "analytics" / "results"
 st.set_page_config(page_title="OT Truth Engine", page_icon="⏱️", layout="wide")
 
-# Colors ek jagah rakhe hain taake har chart same palette use kare.
+# All chart colours live in one place so every chart uses the same palette.
 C_COMPUTED, C_APPROVED, C_PAID, C_BAD, C_OK = "#22d3ee", "#a78bfa", "#f97316", "#f43f5e", "#34d399"
 
 st.markdown("""
@@ -322,7 +322,7 @@ with tabs[6]:
         else:
             try:
                 st.dataframe(q(sql), width="stretch", hide_index=True)
-            except Exception as exc:  # SQL error dikhao, app crash na ho
+            except Exception as exc:  # show the SQL error instead of crashing the app
                 st.error(f"Query failed: {exc}")
 
 st.caption("Every number on this page is read from `db/warehouse.db` or `analytics/results/`. "

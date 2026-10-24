@@ -19,6 +19,7 @@ SELECT CAST(strftime('%Y%m%d', dt) AS INTEGER), dt,
        (SELECT holiday_name FROM staging.holidays h WHERE h.holiday_date = dt AND h.scope = 'ALL')
 FROM d;
 
+-- Small dimensions are copied straight from staging.
 INSERT INTO warehouse.dim_department
 SELECT dept_id, dept_name, previous_name, renamed_on, plant, plant_code, cost_center
 FROM staging.departments;
@@ -27,6 +28,8 @@ INSERT INTO warehouse.dim_shift
 SELECT shift_code, name, start_time, end_time, crosses_midnight, grace_minutes, shift_hours
 FROM staging.shifts;
 
+-- dim_employee is SCD2: one row per employment-history period, combined with the employee's fixed details.
+-- The current row gets valid_to = 9999-12-31 so 'date BETWEEN valid_from AND valid_to' always works.
 INSERT INTO warehouse.dim_employee (emp_id, valid_from, valid_to, is_current, change_reason, dept_id, designation,
     grade, basic_salary, full_name, gender, date_of_birth, plant, employment_type, hire_date, separation_date,
     employee_status, annual_leave_entitlement)
@@ -39,6 +42,7 @@ JOIN staging.employees e ON e.emp_id = h.emp_id
 ORDER BY h.emp_id, h.valid_from;
 
 
+-- Each fact row is linked to the employee version (employee_sk) valid on that row's date.
 INSERT INTO warehouse.fact_attendance_daily
 SELECT a.emp_id, CAST(strftime('%Y%m%d', a.work_date) AS INTEGER), de.employee_sk, de.dept_id, a.shift_code,
        a.status, a.is_working_day, a.is_holiday, a.holiday_name, a.leave_request_id, a.roster_imputed,
@@ -54,6 +58,7 @@ FROM staging.leave_days l
 JOIN warehouse.dim_employee de
   ON de.emp_id = l.emp_id AND l.leave_date BETWEEN de.valid_from AND de.valid_to;
 
+-- Approved OT requests, with the punch-based OT and status of the same day next to them for comparison.
 INSERT INTO warehouse.fact_overtime_approved
 SELECT o.request_id, CAST(strftime('%Y%m%d', o.ot_date) AS INTEGER), o.emp_id, de.employee_sk, de.dept_id,
        o.requested_hours, o.approved_hours, o.approver_id, a.ot_hours, a.status

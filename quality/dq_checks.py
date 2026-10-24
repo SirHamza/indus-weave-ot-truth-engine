@@ -85,6 +85,7 @@ RECONCILIATION = [
      "SELECT COUNT(*) FROM warehouse.dim_employee", "warehouse.dim_employee"),
 ]
 
+# Columns that may only contain a fixed list of values.
 ACCEPTED_VALUES = [
     ("warehouse.fact_attendance_daily", "status",
      ["Present", "Absent", "On Leave", "Holiday", "Weekly Off", "Missing Punch"]),
@@ -98,6 +99,7 @@ ACCEPTED_VALUES = [
     ("staging.rejected_punches", "reject_reason", ["UNMAPPED_DEVICE_USER", "DUPLICATE_WITHIN_2_MIN"]),
 ]
 
+# Business-rule checks. Each query counts the rows that break the rule (0 = PASS).
 SANITY = [
     ("no negative worked hours", "warehouse.fact_attendance_daily",
      "SELECT COUNT(*) FROM warehouse.fact_attendance_daily WHERE worked_hours < 0"),
@@ -146,10 +148,12 @@ def main() -> int:
     run_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     results: list[tuple] = []
 
+    # Store one check result; 0 failing rows means PASS.
     def record(category, name, table, failing, expected=None, actual=None, details=""):
         results.append((run_at, category, name, table, "PASS" if failing == 0 else "FAIL",
                         int(failing), expected, actual, details))
 
+    # 1) Primary keys: no duplicates and no NULLs.
     for table, cols in PRIMARY_KEYS.items():
         key = ", ".join(cols)
         dup = conn.execute(f"SELECT COUNT(*) FROM (SELECT {key} FROM {table} GROUP BY {key} HAVING COUNT(*) > 1)").fetchone()[0]
@@ -157,25 +161,30 @@ def main() -> int:
         record("primary_key", f"unique ({key})", table, dup)
         record("primary_key", f"not null ({key})", table, nulls)
 
+    # 2) Foreign keys: every fact row points to an existing dimension row.
     for fact, col, dim, key in FOREIGN_KEYS:
         orphans = conn.execute(f"SELECT COUNT(*) FROM warehouse.{fact} f LEFT JOIN warehouse.{dim} d "
                                f"ON d.{key} = f.{col} WHERE d.{key} IS NULL").fetchone()[0]
         record("referential_integrity", f"{fact}.{col} -> {dim}.{key}", f"warehouse.{fact}", orphans)
 
+    # 3) Reconciliation: row counts match between layers (the difference is the number of failing rows).
     for name, raw_sql, target_sql, target in RECONCILIATION:
         raw_n = conn.execute(raw_sql).fetchone()[0]
         tgt_n = conn.execute(target_sql).fetchone()[0]
         record("reconciliation", f"{name}: source = {target}", target, abs(raw_n - tgt_n), raw_n, tgt_n)
 
+    # 4) Accepted values.
     for table, col, allowed in ACCEPTED_VALUES:
         placeholders = ", ".join("?" * len(allowed))
         bad = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {col} IS NULL OR {col} NOT IN ({placeholders})",
                            allowed).fetchone()[0]
         record("accepted_values", f"{col} in {allowed}", table, bad)
 
+    # 5) Business sanity rules.
     for name, table, sql in SANITY:
         record("business_sanity", name, table, conn.execute(sql).fetchone()[0])
 
+    # Save every result with a timestamp so the history of runs is kept.
     conn.execute("""CREATE TABLE IF NOT EXISTS warehouse.dq_results (
         run_at TEXT, category TEXT, check_name TEXT, table_name TEXT, status TEXT,
         failing_rows INTEGER, expected INTEGER, actual INTEGER, details TEXT)""")
@@ -183,6 +192,7 @@ def main() -> int:
     conn.commit()
     conn.close()
 
+    # Print a summary per category and every failure.
     failed = [r for r in results if r[4] == "FAIL"]
     by_cat: dict[str, list[int]] = {}
     for r in results:

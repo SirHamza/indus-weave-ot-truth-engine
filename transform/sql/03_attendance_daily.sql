@@ -3,6 +3,7 @@
 
 DROP TABLE IF EXISTS staging.attendance_daily;
 CREATE TABLE staging.attendance_daily AS
+-- Step 1: one row per calendar day in the reporting period.
 WITH RECURSIVE calendar(work_date) AS (
     SELECT period_start FROM staging.pipeline_params
     UNION ALL
@@ -10,19 +11,21 @@ WITH RECURSIVE calendar(work_date) AS (
     WHERE work_date < period_end
 ),
 employee_days AS (
-    -- Har employee ke employment ke din: hire_date se separation_date (last day worked) tak.
+    -- Every day each employee was employed: hire_date up to separation_date (the last day worked).
     SELECT e.emp_id, c.work_date, d.plant, d.plant_code
     FROM staging.employees e
     JOIN staging.departments d ON d.dept_id = e.dept_id
     JOIN calendar c ON c.work_date >= e.hire_date
                    AND (e.separation_date IS NULL OR c.work_date <= e.separation_date)
 ),
+-- Step 2: per employee and shift date, first punch = check-in, last punch = check-out.
 punch_day AS (
     SELECT emp_id, shift_date, COUNT(*) AS punch_count,
            MIN(punch_time) AS check_in, MAX(punch_time) AS check_out
     FROM staging.punches
     GROUP BY emp_id, shift_date
 ),
+-- Step 3: approved leave days, holidays, roster and department for each day.
 leave_day AS (
     SELECT emp_id, leave_date, MIN(request_id) AS leave_request_id, MIN(leave_type) AS leave_type
     FROM staging.leave_days
@@ -31,6 +34,7 @@ leave_day AS (
 holiday AS (
     SELECT holiday_date, scope, holiday_name FROM staging.holidays
 ),
+-- Step 4: put everything about one employee-day on one row, including the exact shift start/end timestamps.
 assembled AS (
     SELECT ed.emp_id, ed.work_date, ed.plant, ed.plant_code,
            h.dept_id,
@@ -54,6 +58,7 @@ assembled AS (
     LEFT JOIN leave_day lv ON lv.emp_id = ed.emp_id AND lv.leave_date = ed.work_date
     LEFT JOIN punch_day p  ON p.emp_id = ed.emp_id AND p.shift_date = ed.work_date
 ),
+-- Step 5: decide the day's status and compute the time differences in whole seconds.
 with_status AS (
     SELECT a.*,
            CASE WHEN a.is_sunday = 0 AND a.holiday_name IS NULL THEN 1 ELSE 0 END AS is_working_day,
@@ -70,13 +75,14 @@ with_status AS (
            CAST(strftime('%s', a.check_out) AS INTEGER) - CAST(strftime('%s', a.check_in) AS INTEGER)     AS secs_worked
     FROM assembled a
 )
+-- Step 6: final columns. Hours/minutes are only filled for Present days.
 SELECT emp_id, work_date, dept_id, plant, plant_code, shift_code, roster_imputed,
        is_sunday, CASE WHEN holiday_name IS NOT NULL THEN 1 ELSE 0 END AS is_holiday, holiday_name,
        is_working_day, leave_request_id, leave_type,
        punch_count, check_in, check_out, shift_start_ts, shift_end_ts,
        status,
        CASE WHEN status = 'Present' THEN ROUND(secs_worked / 3600.0, 2) END AS worked_hours,
-       -- Rule 13: late/early sirf Present working days par, grace 10 min se zyada.
+       -- Rule 13: late / early departure only on Present working days, and only beyond the 10-minute grace.
        CASE WHEN status = 'Present' AND is_working_day = 1 AND secs_after_start > grace_minutes * 60
             THEN 1 ELSE 0 END AS is_late,
        CASE WHEN status = 'Present' AND is_working_day = 1 AND secs_after_start > grace_minutes * 60
@@ -85,7 +91,8 @@ SELECT emp_id, work_date, dept_id, plant, plant_code, shift_code, roster_imputed
             THEN 1 ELSE 0 END AS is_early_departure,
        CASE WHEN status = 'Present' AND is_working_day = 1 AND secs_before_end > grace_minutes * 60
             THEN ROUND(secs_before_end / 60.0, 1) ELSE 0 END AS early_departure_minutes,
-       -- Rule 14/15: OT whole half-hours mein round down (integer division by 1800 sec).
+       -- Rules 14-15: OT = time after shift end on a working day (all worked time on Sunday/holiday),
+       -- rounded DOWN to whole half-hours (integer division by 1800 seconds, so no float errors).
        CASE WHEN status <> 'Present' THEN 0
             WHEN is_working_day = 1 THEN (CASE WHEN secs_after_end > 0 THEN secs_after_end / 1800 ELSE 0 END) * 0.5
             ELSE (secs_worked / 1800) * 0.5 END AS ot_hours

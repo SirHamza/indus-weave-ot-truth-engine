@@ -57,7 +57,7 @@ def erd() -> None:
     plt.close(fig)
 
 
-# Slide theme dashboard jaisa rakha hai taake demo mein dono same product lagen.
+# The slide theme matches the dashboard so both look like one product in the demo.
 BG, PANEL, EDGE, WHITE, SOFT = "#0b1120", "#131c31", "#1e2a44", "#f8fafc", "#94a3b8"
 CYAN, VIOLET, ORANGE, ROSE, GREEN, AMBER = "#22d3ee", "#a78bfa", "#f97316", "#f43f5e", "#34d399", "#fbbf24"
 W, H = 13.33, 7.5

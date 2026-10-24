@@ -12,6 +12,7 @@ SQL = Path(__file__).resolve().parent / "sql" / "03_attendance_daily.sql"
 
 def main() -> None:
     conn = connect()
+    # Store the reporting period in a table so the SQL file can read it (it changes for a 7th month).
     conn.executescript("DROP TABLE IF EXISTS staging.pipeline_params;"
                        "CREATE TABLE staging.pipeline_params (period_start TEXT NOT NULL, period_end TEXT NOT NULL);")
     conn.execute("INSERT INTO staging.pipeline_params VALUES (?, ?)", (PERIOD_START, PERIOD_END))

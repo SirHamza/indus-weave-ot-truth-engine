@@ -16,6 +16,7 @@ with src.open(encoding="utf-8") as fi, out.open("w", newline="", encoding="utf-8
     n = 0
     for row in reader:
         t = datetime.strptime(row["punch_time"], "%Y-%m-%d %H:%M:%S")
+        # Copy one month of real punches 6 weeks forward, with new punch IDs so they count as new rows.
         if datetime(2026, 8, 20) <= t < datetime(2026, 9, 20):
             n += 1
             writer.writerow([f"P9{n:07d}", row["device_id"], row["device_user_id"],

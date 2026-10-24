@@ -20,27 +20,31 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pipeline_config import PERIOD_END, PERIOD_START, PLANT_CODES, connect, log, run_sql_file  # noqa: E402
 
 SQL_DIR = Path(__file__).resolve().parent / "sql"
+# Order of history records that start on the same date (a hire comes before a transfer, etc.).
 REASON_ORDER = {"Hire": 0, "Transfer": 1, "Promotion": 2, "Salary Revision": 3}
 
 
 # ----------------------------------------------------------------- helpers
 def read_raw(conn, table: str) -> pd.DataFrame:
     df = pd.read_sql(f'SELECT * FROM raw."{table}"', conn)
-    # Raw mein khaali string hai; staging mein usay NULL banate hain.
+    # Raw stores missing values as empty strings; staging uses real NULLs.
     return df.replace("", np.nan)
 
 
 def clean_text(s: pd.Series) -> pd.Series:
+    # Trim and collapse repeated spaces: '  Weaving   Dept ' -> 'Weaving Dept'.
     return s.str.strip().str.replace(r"\s+", " ", regex=True)
 
 
 def parse_mixed_date(s: pd.Series) -> pd.Series:
     """YYYY-MM-DD | DD/MM/YYYY | DD-Mon-YYYY -> ISO text. Unknown formats raise."""
     s = s.str.strip()
+    # Try each known format in turn; a value is filled by the first format that parses it.
     out = pd.to_datetime(s, format="%Y-%m-%d", errors="coerce")
     out = out.fillna(pd.to_datetime(s, format="%d/%m/%Y", errors="coerce"))
     out = out.fillna(pd.to_datetime(s, format="%d-%b-%Y", errors="coerce"))
     bad = s.notna() & out.isna()
+    # Anything that matched no format is an unknown format: stop instead of guessing.
     if bad.any():
         raise ValueError(f"Unparseable dates: {s[bad].unique()[:5]}")
     return out.dt.strftime("%Y-%m-%d")
@@ -67,6 +71,7 @@ def write(conn, df: pd.DataFrame, table: str, schema: str = "staging") -> None:
 
 
 # ----------------------------------------------------------------- tables
+# Departments: trimmed text, ISO dates, plus the plant code.
 def build_departments(conn) -> pd.DataFrame:
     d = read_raw(conn, "departments")
     out = pd.DataFrame({
@@ -83,6 +88,7 @@ def build_departments(conn) -> pd.DataFrame:
     return out
 
 
+# Employees: clean text and dates, map department text to dept_id, remove duplicates (rule 1).
 def build_employees(conn, depts: pd.DataFrame) -> None:
     e = read_raw(conn, "employees")
     for c in ["emp_id", "full_name", "gender", "email", "phone", "plant", "department",
@@ -95,7 +101,8 @@ def build_employees(conn, depts: pd.DataFrame) -> None:
     e["updated_at"] = pd.to_datetime(e.updated_at.str.strip()).dt.strftime("%Y-%m-%d %H:%M:%S")
     e["annual_leave_entitlement"] = e.annual_leave_entitlement.astype(int)
 
-    # Department text -> dept_id: casing/spaces normalise karke current OR previous naam se match.
+    # Map the free-text department to a dept_id: normalise case/spaces, then match on
+    # (plant, current name) OR (plant, previous name before a rename).
     key = depts.assign(k=depts.dept_name.str.lower())[["plant", "k", "dept_id"]]
     old = depts.dropna(subset=["previous_name"]).assign(k=lambda x: x.previous_name.str.lower())[["plant", "k", "dept_id"]]
     lookup = pd.concat([key.assign(via="current_name"), old.assign(via="previous_name")])
@@ -116,6 +123,7 @@ def build_employees(conn, depts: pd.DataFrame) -> None:
                "grade", "employment_type", "hire_date", "separation_date", "status", "annual_leave_entitlement"]
     kept_idx = keep.set_index("emp_id")
     merge_log = []
+    # For every dropped duplicate, record which fields differed from the kept row (audit trail).
     for _, row in dropped.iterrows():
         winner = kept_idx.loc[row.emp_id]
         diffs = [f"{c}: '{row[c]}' -> '{winner[c]}'" for c in compare
@@ -131,6 +139,7 @@ def build_employees(conn, depts: pd.DataFrame) -> None:
     write(conn, pd.DataFrame(merge_log), "employee_merge_log")
 
 
+# Employment history -> clean SCD2 ranges (valid_from / valid_to) with no overlaps or gaps.
 def build_employment_history(conn) -> None:
     h = read_raw(conn, "employment_history")
     for c in ["emp_id", "dept_id", "designation", "grade", "change_reason"]:
@@ -141,7 +150,8 @@ def build_employment_history(conn) -> None:
     h["reason_order"] = h.change_reason.map(REASON_ORDER).fillna(9)
     h = h.sort_values(["emp_id", "effective_from", "reason_order"]).reset_index(drop=True)
 
-    # Do records same din shuru hon to pehla wala zero-length ho jata hai (rule 2) -> reject + log.
+    # Two records starting on the same day: the earlier one would cover zero days (rule 2),
+    # so it is moved to rejected_employment_history with a reason.
     same_day = h.duplicated(["emp_id", "effective_from"], keep="last")
     rejected = h[same_day].assign(reject_reason="Superseded by a later record starting the same day (rule 2: zero-length range)")
     h = h[~same_day].copy()
@@ -153,6 +163,7 @@ def build_employment_history(conn) -> None:
     h["is_current"] = nxt.isna().astype(int)
     exp_to = h.valid_to
     changed = ~((h.effective_to_raw == exp_to) | (h.effective_to_raw.isna() & exp_to.isna()))
+    # Explain, per row, how the exported end date was corrected (NULL = it was already right).
     h["effective_to_fix"] = np.where(
         ~changed, None,
         np.where(h.effective_to_raw.isna(), "export had no end date but a later record exists",
@@ -166,18 +177,21 @@ def build_employment_history(conn) -> None:
                           "basic_salary", "reject_reason", "_row_hash"]], "rejected_employment_history")
 
 
+# Shifts (JSON): unpack each record and compute the shift length in hours.
 def build_shifts(conn) -> None:
     s = read_raw(conn, "shifts")
     recs = pd.DataFrame([json.loads(x) for x in s.record_json])
     recs["_row_hash"] = s._row_hash.values
     recs["crosses_midnight"] = recs.crosses_midnight.astype(int)
     start = pd.to_timedelta(recs.start_time + ":00")
+    # A NIGHT shift ends the next day, so add one day to its end time.
     end = pd.to_timedelta(recs.end_time + ":00") + pd.to_timedelta(recs.crosses_midnight, unit="D")
     recs["shift_hours"] = (end - start).dt.total_seconds() / 3600
     write(conn, recs[["shift_code", "name", "start_time", "end_time", "crosses_midnight", "grace_minutes",
                       "shift_hours", "applies_to", "_row_hash"]], "shifts")
 
 
+# Weekly roster -> complete weekly roster -> one row per employee per day (roster_daily).
 def build_roster(conn) -> None:
     r = read_raw(conn, "shift_roster")
     r["emp_id"] = clean_text(r.emp_id)
@@ -187,7 +201,8 @@ def build_roster(conn) -> None:
         raise ValueError("roster week_start that is not a Monday")
     emps = pd.read_sql("SELECT emp_id, hire_date, separation_date FROM staging.employees", conn)
 
-    # Rule 6: har employee ke liye pehle rostered week se aakhri week tak grid, missing week = pichla week.
+    # Rule 6: build a grid of every week from each employee's first rostered week to the last week.
+    # A week missing from the export copies the previous week's shift (forward-fill), flagged is_imputed = 1.
     weeks = pd.date_range(r.week_start.min(), r.week_start.max(), freq="7D").strftime("%Y-%m-%d")
     first = r.groupby("emp_id").week_start.min()
     grid = pd.MultiIndex.from_product([emps.emp_id, weeks], names=["emp_id", "week_start"]).to_frame(index=False)
@@ -207,6 +222,7 @@ def build_roster(conn) -> None:
     write(conn, rd[["emp_id", "work_date", "week_start", "shift_code", "is_imputed"]], "roster_daily")
 
 
+# Tables that only need trimming, case fixes and date/number parsing.
 def build_simple(conn) -> None:
     dm = read_raw(conn, "device_mapping")
     dm = dm.assign(device_id=clean_text(dm.device_id), device_user_id=clean_text(dm.device_user_id),
@@ -239,6 +255,7 @@ def build_simple(conn) -> None:
           "applications")
 
 
+# Leave requests (nested JSON) -> one row per request, one row per approval step, one row per leave day.
 def build_leave(conn) -> None:
     raw = read_raw(conn, "leave_requests")
     reqs, steps = [], []
@@ -250,7 +267,7 @@ def build_leave(conn) -> None:
                           "approver_id": a["approver_id"], "action": a["action"], "acted_at": a["acted_at"],
                           "_row_hash": rh})
         mgr, hr, cancelled = acts.get("Manager"), acts.get("HR"), x.get("cancelled_at")
-        # Rule 16: Manager AND HR dono Approved, aur kabhi cancel na hui ho.
+        # Rule 16: a leave counts only if Manager AND HR both approved and it was never cancelled.
         if cancelled:
             reason = "Cancelled"
         elif mgr != "Approved":
@@ -275,7 +292,8 @@ def build_leave(conn) -> None:
     write(conn, req, "leave_requests")
     write(conn, st, "leave_approvals")
 
-    # Rule 17: valid request ka har din, magar Sunday aur us plant ki holiday leave day nahi.
+    # Rule 17: every calendar day of a valid request is a leave day, except Sundays and that plant's holidays
+    # (so days_requested from the export is ignored).
     hol = pd.read_sql("SELECT holiday_date, scope FROM staging.holidays", conn)
     v = req[req.is_valid == 1]
     days = v.assign(leave_date=[pd.date_range(f, t).strftime("%Y-%m-%d").tolist()
@@ -304,8 +322,9 @@ def detect_clock_drift(conn) -> None:
     p["work_date"] = p.t.dt.strftime("%Y-%m-%d")
     rd = pd.read_sql("SELECT emp_id, work_date, shift_code FROM staging.roster_daily", conn)
     sh = pd.read_sql("SELECT shift_code, start_time FROM staging.shifts WHERE crosses_midnight = 0", conn)
-    # Sirf day/eve/general shifts: inka check-in usi calendar din hota hai, midnight ka masla nahi.
+    # Use only shifts that do not cross midnight (DAY/EVE/GEN): their check-in falls on the same calendar day.
     p = p.merge(rd, on=["emp_id", "work_date"]).merge(sh, on="shift_code")
+    # First punch of each employee-day, and how many minutes after the shift start it was.
     first = p.groupby(["emp_id", "work_date"]).agg(t=("t", "min"), device_id=("device_id", "first"),
                                                      start_time=("start_time", "first")).reset_index()
     first["delta_min"] = (first.t - pd.to_datetime(first.work_date + " " + first.start_time)).dt.total_seconds() / 60
@@ -314,6 +333,7 @@ def detect_clock_drift(conn) -> None:
     daily = daily[daily["size"] >= 20]
 
     findings = []
+    # Compare each device's daily median with the median of ALL OTHER devices on the same day.
     for dev in sorted(daily.device_id.unique()):
         mine = daily[daily.device_id == dev].set_index("work_date")["median"]
         fleet = first[first.device_id != dev].groupby("work_date").delta_min.median().reindex(mine.index)
@@ -321,11 +341,13 @@ def detect_clock_drift(conn) -> None:
         off = diff.abs() > 30
         if not off.any():
             continue
-        # Pehla din jahan se aakhir tak har din drift ho raha hai.
+        # Find the first day from which EVERY later day is off (a drift that started and never stopped).
+        # Reversed cumulative-min turns 'off' into 'off from here to the end'.
         tail_ok = off[::-1].cummin()[::-1]
         if not tail_ok.any():
             continue
         start_day = tail_ok[tail_ok].index.min()
+        # The correction = typical difference since the drift started, rounded to 15 minutes (here +60).
         offset = int(round(diff[diff.index >= start_day].median() / 15) * 15)
         findings.append({
             "device_id": dev, "drift_from": f"{start_day} 00:00:00", "drift_to": None,
@@ -354,6 +376,7 @@ def main() -> None:
     build_leave(conn)
     detect_clock_drift(conn)
     conn.commit()
+    # Punch mapping, clock correction, de-duplication and night-shift dating run in SQL.
     run_sql_file(conn, SQL_DIR / "02_punches.sql")
     for t in ["punches", "rejected_punches"]:
         log("stage2", f"staging.{t:<24} {conn.execute(f'SELECT COUNT(*) FROM staging.{t}').fetchone()[0]:>7} rows")

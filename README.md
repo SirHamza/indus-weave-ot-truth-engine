@@ -4,6 +4,21 @@ A Python + SQL pipeline that turns six months of messy HCM exports (Apr–Sep 20
 
 **Headline:** OT paid rose **+23%** (PKR 2.81M to 3.48M a month) while the OT worked by the punch clock stayed flat. Payroll pays approved requests 1:1. See [`presentation/cfo_findings.md`](presentation/cfo_findings.md) for the three findings (about PKR 6.2M of leakage).
 
+**New to the code?** Start with [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md): a stage-by-stage walkthrough with the key code and one employee-day traced from raw punch to CFO number.
+
+## Screenshots
+**CFO story:** paid OT climbs while OT worked by the punch clock stays flat, plus the top 3 findings.
+![CFO story](docs/screenshots/01_cfo_story.png)
+
+| Overtime gap by plant and department | Payroll leakage |
+|---|---|
+| ![Overtime gap](docs/screenshots/02_overtime_gap.png) | ![Payroll leakage](docs/screenshots/03_payroll_leakage.png) |
+| **All 10 questions: chart, table and SQL** | **89 data-quality checks** |
+| ![10 questions](docs/screenshots/04_ten_questions.png) | ![Data quality](docs/screenshots/05_data_quality.png) |
+
+**Pipeline view:** stages, row counts per layer, raw load log, rejected punches.
+![Pipeline](docs/screenshots/06_pipeline.png)
+
 ## Rebuild from scratch (clean machine)
 Requires Python 3.11+. No database server is needed: SQLite is allowed by the brief.
 ```bash
@@ -30,6 +45,7 @@ Re-running `python run_pipeline.py` is idempotent: raw rows are keyed on `_row_h
 | `run_pipeline.py` | bonus | One-command rebuild, `--fresh`, `--incremental` |
 | `analytics/bonus_recruitment_funnel.sql` | bonus | Funnel conversion + median days per stage |
 | `dashboard/app.py` | bonus | Streamlit (dark theme in `.streamlit/config.toml`): CFO story, OT gap by plant, leakage, all 10 questions with chart + SQL, DQ ledger, pipeline view, SQL explorer |
+| `docs/HOW_IT_WORKS.md` | guide | Code walkthrough: every stage, key code, worked example |
 | `presentation/` | demo | `cfo_findings.md`, `slides.pdf` (7 slides), `make_visuals.py` |
 
 ## Planted data issues: found, fixed in code, documented

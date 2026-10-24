@@ -16,7 +16,7 @@ SELECT d.plant, d.dept_id, d.dept_name,
        ROUND(t.paid_ot_hours, 2)     AS paid_ot_hours,
        ROUND(t.paid_ot_hours - t.computed_ot_hours, 2) AS excess_paid_hours,
        ROUND(100.0 * (t.paid_ot_hours - t.computed_ot_hours) / NULLIF(t.computed_ot_hours, 0), 2) AS excess_pct,
-       -- Excess hours ki qeemat: us dept ka average paid rate per OT hour.
+       -- Value of the excess hours = the department's average paid rate per OT hour.
        ROUND((t.paid_ot_hours - t.computed_ot_hours) * t.paid_ot_amount / NULLIF(t.paid_ot_hours, 0), 0)
            AS excess_paid_amount_pkr
 FROM dept_totals t

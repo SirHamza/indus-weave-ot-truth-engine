@@ -14,11 +14,13 @@ TABLES = ["dim_date", "dim_department", "dim_shift", "dim_employee",
 
 def main() -> None:
     conn = connect()
+    # 1) create the tables (dimensions, facts, view)  2) fill them from staging.
     for ddl in sorted((HERE / "ddl").glob("*.sql")):
         run_sql_file(conn, ddl)
     run_sql_file(conn, HERE / "load_warehouse.sql")
     for t in TABLES:
         log("stage4", f"warehouse.{t:<24} {conn.execute(f'SELECT COUNT(*) FROM warehouse.{t}').fetchone()[0]:>7} rows")
+    # Double-check: SQLite lists every fact row whose foreign key has no matching dimension row.
     violations = conn.execute("PRAGMA warehouse.foreign_key_check").fetchall()
     log("stage4", f"foreign_key_check violations: {len(violations)}")
     conn.close()

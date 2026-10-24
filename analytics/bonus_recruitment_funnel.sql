@@ -26,7 +26,7 @@ durations AS (
     WHERE e.next_stage_date IS NOT NULL
 ),
 medians AS (
-    -- SQLite mein MEDIAN nahi hai: beech wali ek ya do values ka average.
+    -- SQLite has no MEDIAN(): take the average of the middle one or two values.
     SELECT stage, AVG(days) AS median_days, MAX(n) AS transitions
     FROM durations
     WHERE rn IN ((n + 1) / 2, (n + 2) / 2)

@@ -24,6 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pipeline_config import RAW_DIR, connect, log  # noqa: E402
 
+# Source file name -> raw table name.
 CSV_FILES = {
     "employees.csv": "employees",
     "employment_history.csv": "employment_history",
@@ -45,17 +46,20 @@ META_COLS = ["_source_file", "_loaded_at", "_row_hash"]
 
 
 def row_hash(values: list[str]) -> str:
-    # Unit separator se join karte hain taake "a,b"+"c" aur "a"+"b,c" ka hash alag ho.
+    # Join with the ASCII "unit separator" so ["a,b", "c"] and ["a", "b,c"] get different hashes.
     return hashlib.sha256("\x1f".join(values).encode("utf-8")).hexdigest()
 
 
 def ensure_table(conn, table: str, columns: list[str]) -> None:
+    # Every source column is stored as TEXT so nothing is changed on the way in.
+    # _row_hash is the primary key: the same row can never be stored twice.
     cols = ", ".join(f'"{c}" TEXT' for c in columns)
     conn.execute(
         f'CREATE TABLE IF NOT EXISTS raw."{table}" ({cols}, '
         f"_source_file TEXT NOT NULL, _loaded_at TEXT NOT NULL, _row_hash TEXT PRIMARY KEY)"
     )
     existing = [r[1] for r in conn.execute(f'PRAGMA raw.table_info("{table}")')]
+    # Fail loudly if a new file has columns the table does not know (schema drift).
     missing = [c for c in columns if c not in existing]
     if missing:
         raise ValueError(f"raw.{table}: file has columns not in table: {missing}")
@@ -71,7 +75,7 @@ def read_csv_rows(path: Path) -> tuple[list[str], list[list[str]]]:
 def read_json_rows(path: Path, array_key: str | None) -> tuple[list[str], list[list[str]]]:
     data = json.loads(path.read_text(encoding="utf-8"))
     items = data[array_key] if array_key else data
-    # Raw layer mein JSON ko flatten nahi karte; har element apni asal JSON text ke sath.
+    # The raw layer never flattens JSON: each array element is stored as its original JSON text.
     return ["record_json"], [[json.dumps(item, ensure_ascii=False, sort_keys=True)] for item in items]
 
 
@@ -80,10 +84,12 @@ def load_file(conn, path: Path, table: str, header: list[str], rows: list[list[s
     before = conn.execute(f'SELECT COUNT(*) FROM raw."{table}"').fetchone()[0]
     col_list = ", ".join(f'"{c}"' for c in header + META_COLS)
     placeholders = ", ".join("?" * (len(header) + 3))
+    # Add the three metadata columns to every row. INSERT OR IGNORE skips rows whose hash already exists.
     payload = [r + [path.name, loaded_at, row_hash(r)] for r in rows]
     conn.executemany(f'INSERT OR IGNORE INTO raw."{table}" ({col_list}) VALUES ({placeholders})', payload)
     after = conn.execute(f'SELECT COUNT(*) FROM raw."{table}"').fetchone()[0]
     from_file = conn.execute(f'SELECT COUNT(*) FROM raw."{table}" WHERE _source_file = ?', (path.name,)).fetchone()[0]
+    # One audit line per file: rows in the file vs rows now in the table.
     entry = {
         "source_file": path.name, "table_name": f"raw.{table}", "file_rows": len(rows),
         "inserted": after - before, "already_loaded": len(rows) - (after - before),
@@ -111,6 +117,7 @@ def main(argv: list[str] | None = None) -> list[dict]:
         " table_rows_total INTEGER, status TEXT)")
     loaded_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
+    # Incremental mode loads one extra file; normal mode loads all 12 files.
     if args.file:
         if not args.table:
             ap.error("--table is required with --file")
