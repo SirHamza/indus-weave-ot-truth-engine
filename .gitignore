@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+db/
+data/raw/*
+!data/raw/.gitkeep
+data/incoming/
+_source/
+.env
+.claude/
+_local/
+*.log

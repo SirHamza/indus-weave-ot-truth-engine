@@ -1,0 +1,6 @@
+emp_id,full_name,plant,dept_id,dept_name,separation_date,months_paid_after_separation,first_month_paid_after_exit,last_month_paid_after_exit,earnings_paid_after_exit_pkr
+E10471,Umair Baloch,Head Office,D01,Human Resources,2026-04-23,5,2026-05,2026-09,660000.0
+E11222,Naveed Ansari,SITE Plant,D14,Dyeing,2026-05-16,4,2026-06,2026-09,418100.0
+E10332,Amna Awan,Faisalabad Plant,D25,Warehouse,2026-05-14,4,2026-06,2026-09,322000.0
+E10989,Tariq Jatoi,Faisalabad Plant,D22,Packing,2026-05-18,4,2026-06,2026-09,294100.0
+E10295,Sohail Hussain,SITE Plant,D15,Finishing,2026-05-11,4,2026-06,2026-09,253800.0

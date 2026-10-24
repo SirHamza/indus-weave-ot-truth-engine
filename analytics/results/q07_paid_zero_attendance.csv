@@ -1,0 +1,59 @@
+month,emp_id,full_name,plant,dept_id,dept_name,hire_date,separation_date,employed_days,attended_days,earnings_paid_pkr,pattern
+2026-06,E10295,Sohail Hussain,SITE Plant,D15,Finishing,2013-07-17,2026-05-11,0,0,63450.0,No employment days in month (after separation)
+2026-07,E10295,Sohail Hussain,SITE Plant,D15,Finishing,2013-07-17,2026-05-11,0,0,63450.0,No employment days in month (after separation)
+2026-08,E10295,Sohail Hussain,SITE Plant,D15,Finishing,2013-07-17,2026-05-11,0,0,63450.0,No employment days in month (after separation)
+2026-09,E10295,Sohail Hussain,SITE Plant,D15,Finishing,2013-07-17,2026-05-11,0,0,63450.0,No employment days in month (after separation)
+2026-06,E10332,Amna Awan,Faisalabad Plant,D25,Warehouse,2020-06-13,2026-05-14,0,0,80500.0,No employment days in month (after separation)
+2026-07,E10332,Amna Awan,Faisalabad Plant,D25,Warehouse,2020-06-13,2026-05-14,0,0,80500.0,No employment days in month (after separation)
+2026-08,E10332,Amna Awan,Faisalabad Plant,D25,Warehouse,2020-06-13,2026-05-14,0,0,80500.0,No employment days in month (after separation)
+2026-09,E10332,Amna Awan,Faisalabad Plant,D25,Warehouse,2020-06-13,2026-05-14,0,0,80500.0,No employment days in month (after separation)
+2026-05,E10397,Owais Mirza,Korangi Plant,D08,Spinning,2023-01-17,2026-05-01,1,0,2122.0,Employed but no punches all month
+2026-04,E10399,Fatima Chaudhry,SITE Plant,D14,Dyeing,2025-09-06,,30,0,85925.0,Employed but no punches all month
+2026-05,E10399,Fatima Chaudhry,SITE Plant,D14,Dyeing,2025-09-06,,31,0,85925.0,Employed but no punches all month
+2026-06,E10399,Fatima Chaudhry,SITE Plant,D14,Dyeing,2025-09-06,,30,0,85925.0,Employed but no punches all month
+2026-07,E10399,Fatima Chaudhry,SITE Plant,D14,Dyeing,2025-09-06,,31,0,94450.0,Employed but no punches all month
+2026-08,E10399,Fatima Chaudhry,SITE Plant,D14,Dyeing,2025-09-06,,31,0,94450.0,Employed but no punches all month
+2026-09,E10399,Fatima Chaudhry,SITE Plant,D14,Dyeing,2025-09-06,,30,0,94450.0,Employed but no punches all month
+2026-05,E10471,Umair Baloch,Head Office,D01,Human Resources,2014-03-14,2026-04-23,0,0,132000.0,No employment days in month (after separation)
+2026-06,E10471,Umair Baloch,Head Office,D01,Human Resources,2014-03-14,2026-04-23,0,0,132000.0,No employment days in month (after separation)
+2026-07,E10471,Umair Baloch,Head Office,D01,Human Resources,2014-03-14,2026-04-23,0,0,132000.0,No employment days in month (after separation)
+2026-08,E10471,Umair Baloch,Head Office,D01,Human Resources,2014-03-14,2026-04-23,0,0,132000.0,No employment days in month (after separation)
+2026-09,E10471,Umair Baloch,Head Office,D01,Human Resources,2014-03-14,2026-04-23,0,0,132000.0,No employment days in month (after separation)
+2026-04,E10491,Sajid Javed,Faisalabad Plant,D22,Packing,2025-08-02,,30,0,77400.0,Employed but no punches all month
+2026-05,E10491,Sajid Javed,Faisalabad Plant,D22,Packing,2025-08-02,,31,0,77400.0,Employed but no punches all month
+2026-06,E10491,Sajid Javed,Faisalabad Plant,D22,Packing,2025-08-02,,30,0,77400.0,Employed but no punches all month
+2026-07,E10491,Sajid Javed,Faisalabad Plant,D22,Packing,2025-08-02,,31,0,85150.0,Employed but no punches all month
+2026-08,E10491,Sajid Javed,Faisalabad Plant,D22,Packing,2025-08-02,,31,0,85150.0,Employed but no punches all month
+2026-09,E10491,Sajid Javed,Faisalabad Plant,D22,Packing,2025-08-02,,30,0,85150.0,Employed but no punches all month
+2026-04,E10564,Danish Hashmi,Faisalabad Plant,D23,Maintenance,2025-04-11,,30,0,64225.0,Employed but no punches all month
+2026-05,E10564,Danish Hashmi,Faisalabad Plant,D23,Maintenance,2025-04-11,,31,0,64225.0,Employed but no punches all month
+2026-06,E10564,Danish Hashmi,Faisalabad Plant,D23,Maintenance,2025-04-11,,30,0,64225.0,Employed but no punches all month
+2026-07,E10564,Danish Hashmi,Faisalabad Plant,D23,Maintenance,2025-04-11,,31,0,70425.0,Employed but no punches all month
+2026-08,E10564,Danish Hashmi,Faisalabad Plant,D23,Maintenance,2025-04-11,,31,0,70425.0,Employed but no punches all month
+2026-09,E10564,Danish Hashmi,Faisalabad Plant,D23,Maintenance,2025-04-11,,30,0,70425.0,Employed but no punches all month
+2026-04,E10907,Sohail Baig,Faisalabad Plant,D21,Cutting,2025-06-26,,30,0,73525.0,Employed but no punches all month
+2026-05,E10907,Sohail Baig,Faisalabad Plant,D21,Cutting,2025-06-26,,31,0,73525.0,Employed but no punches all month
+2026-06,E10907,Sohail Baig,Faisalabad Plant,D21,Cutting,2025-06-26,,30,0,73525.0,Employed but no punches all month
+2026-07,E10907,Sohail Baig,Faisalabad Plant,D21,Cutting,2025-06-26,,31,0,80500.0,Employed but no punches all month
+2026-08,E10907,Sohail Baig,Faisalabad Plant,D21,Cutting,2025-06-26,,31,0,80500.0,Employed but no punches all month
+2026-09,E10907,Sohail Baig,Faisalabad Plant,D21,Cutting,2025-06-26,,30,0,80500.0,Employed but no punches all month
+2026-06,E10989,Tariq Jatoi,Faisalabad Plant,D22,Packing,2018-05-26,2026-05-18,0,0,73525.0,No employment days in month (after separation)
+2026-07,E10989,Tariq Jatoi,Faisalabad Plant,D22,Packing,2018-05-26,2026-05-18,0,0,73525.0,No employment days in month (after separation)
+2026-08,E10989,Tariq Jatoi,Faisalabad Plant,D22,Packing,2018-05-26,2026-05-18,0,0,73525.0,No employment days in month (after separation)
+2026-09,E10989,Tariq Jatoi,Faisalabad Plant,D22,Packing,2018-05-26,2026-05-18,0,0,73525.0,No employment days in month (after separation)
+2026-04,E11064,Sajid Memon,Faisalabad Plant,D25,Warehouse,2025-11-20,,30,0,81275.0,Employed but no punches all month
+2026-05,E11064,Sajid Memon,Faisalabad Plant,D25,Warehouse,2025-11-20,,31,0,81275.0,Employed but no punches all month
+2026-06,E11064,Sajid Memon,Faisalabad Plant,D25,Warehouse,2025-11-20,,30,0,81275.0,Employed but no punches all month
+2026-07,E11064,Sajid Memon,Faisalabad Plant,D25,Warehouse,2025-11-20,,31,0,89025.0,Employed but no punches all month
+2026-08,E11064,Sajid Memon,Faisalabad Plant,D25,Warehouse,2025-11-20,,31,0,89025.0,Employed but no punches all month
+2026-09,E11064,Sajid Memon,Faisalabad Plant,D25,Warehouse,2025-11-20,,30,0,89025.0,Employed but no punches all month
+2026-04,E11089,Sajid Javed,Korangi Plant,D09,Weaving,2025-11-04,,30,0,75075.0,Employed but no punches all month
+2026-05,E11089,Sajid Javed,Korangi Plant,D09,Weaving,2025-11-04,,31,0,75075.0,Employed but no punches all month
+2026-06,E11089,Sajid Javed,Korangi Plant,D09,Weaving,2025-11-04,,30,0,75075.0,Employed but no punches all month
+2026-07,E11089,Sajid Javed,Korangi Plant,D09,Weaving,2025-11-04,,31,0,82050.0,Employed but no punches all month
+2026-08,E11089,Sajid Javed,Korangi Plant,D09,Weaving,2025-11-04,,31,0,82050.0,Employed but no punches all month
+2026-09,E11089,Sajid Javed,Korangi Plant,D09,Weaving,2025-11-04,,30,0,82050.0,Employed but no punches all month
+2026-06,E11222,Naveed Ansari,SITE Plant,D14,Dyeing,2022-02-16,2026-05-16,0,0,104525.0,No employment days in month (after separation)
+2026-07,E11222,Naveed Ansari,SITE Plant,D14,Dyeing,2022-02-16,2026-05-16,0,0,104525.0,No employment days in month (after separation)
+2026-08,E11222,Naveed Ansari,SITE Plant,D14,Dyeing,2022-02-16,2026-05-16,0,0,104525.0,No employment days in month (after separation)
+2026-09,E11222,Naveed Ansari,SITE Plant,D14,Dyeing,2022-02-16,2026-05-16,0,0,104525.0,No employment days in month (after separation)
